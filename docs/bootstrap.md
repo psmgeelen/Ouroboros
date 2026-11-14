@@ -26,8 +26,8 @@ They also need `roles/owner` or an equivalent set: `serviceusage.serviceUsageAdm
 
 ## Accounts that must exist before Actions runs
 
-- `github-deploy-dev@ouroboros-dev-514714.iam.gserviceaccount.com` trusts only `refs/heads/dev`
-- `github-deploy-prod@ouroboros-prod-514714.iam.gserviceaccount.com` trusts only `refs/heads/prod`
+- `github-deploy-dev@ouroboros-dev-514714.iam.gserviceaccount.com` trusts GitHub environment `dev` (`repo:psmgeelen@30153353/Ouroboros@1457826099:environment:dev`). That environment only allows the `dev` branch.
+- `github-deploy-prod@ouroboros-prod-514714.iam.gserviceaccount.com` trusts GitHub environment `prod` the same way, and that environment only allows the `prod` branch.
 - `relay-runtime-dev@ouroboros-dev-514714.iam.gserviceaccount.com`
 - `relay-runtime-prod@ouroboros-prod-514714.iam.gserviceaccount.com`
 
