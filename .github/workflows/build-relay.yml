@@ -1,0 +1,51 @@
+name: build-relay
+
+# main publishes one immutable image tag, the commit SHA.
+# This workflow does not deploy and does not push :dev or :prod.
+on:
+  push:
+    branches: [main]
+    paths:
+      - services/relay/**
+      - crates/core/**
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - run: bash scripts/install-task.sh
+      - run: task ci:core
+      - run: task ci:relay
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - name: Publish immutable relay image
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          registry=europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay
+          echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin https://europe-west1-docker.pkg.dev
+          docker build -f services/relay/Dockerfile \
+            --label org.opencontainers.image.version="$SHA" \
+            --label org.opencontainers.image.revision="$SHA" \
+            -t "${registry}:${SHA}" \
+            .
+          docker push "${registry}:${SHA}"

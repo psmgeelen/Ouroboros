@@ -1,0 +1,82 @@
+name: promote-android
+
+# dev and prod attach the APK that main already built. This workflow does
+# not install Flutter and does not compile.
+on:
+  push:
+    branches: [dev, prod]
+    paths:
+      - apps/mobile/lib/**
+      - apps/mobile/test/**
+      - apps/mobile/android/**
+      - apps/mobile/pubspec.yaml
+      - apps/mobile/pubspec.lock
+      - apps/mobile/analysis_options.yaml
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: promote-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENV_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          npx semantic-release
+          if [ "$ENV_NAME" = "prod" ]; then
+            tag=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+          else
+            tag=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9]+$' | sort -V | tail -1 || true)
+          fi
+          if [ -n "${tag}" ]; then
+            echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+            echo "no release tag on this commit; the APK stays on the main build"
+          fi
+      - name: Download APK built on main
+        if: steps.release.outputs.tagged == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          name="ouroboros-android-${SHA}"
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow build-android.yml --commit "$SHA" --status success --json databaseId --jq '.[0].databaseId')
+          if [ -z "${run_id}" ] || [ "${run_id}" = "null" ]; then
+            echo "No successful Android build on main for ${SHA}. Push main and wait for the build before promoting."
+            exit 1
+          fi
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$name" --dir apk
+          cp apk/ouroboros-android.apk ouroboros-android.apk
+          cp ouroboros-android.apk "ouroboros-android-${VERSION}.apk"
+      - uses: softprops/action-gh-release@v2
+        if: steps.release.outputs.tagged == 'true'
+        with:
+          tag_name: v${{ steps.release.outputs.version }}
+          files: |
+            ouroboros-android.apk
+            ouroboros-android-${{ steps.release.outputs.version }}.apk
+          fail_on_unmatched_files: false
+          prerelease: ${{ github.ref_name == 'dev' }}
+          make_latest: ${{ github.ref_name == 'prod' }}

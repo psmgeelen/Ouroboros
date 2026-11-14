@@ -84,6 +84,86 @@ resource "google_cloud_tasks_queue" "wakes" {
 resource "google_compute_security_policy" "relay" {
   name = "ouroboros-relay"
 
+  # JSON body parsing for the hex/signature API payloads.
+  advanced_options_config {
+    json_parsing = "STANDARD"
+    log_level    = "NORMAL"
+  }
+
+  # OWASP CRS 4.22 at sensitivity 1, preview first (log-only) to catch
+  # false positives on ciphertext_hex / sealed_key_hex before enforce.
+  rule {
+    action   = "deny(403)"
+    priority = 900
+    preview  = true
+    match {
+      expr {
+        expression = "evaluatePreconfiguredWaf('sqli-v422-stable', {'sensitivity': 1})"
+      }
+    }
+    description = "OWASP SQLi (preview)."
+  }
+
+  rule {
+    action   = "deny(403)"
+    priority = 901
+    preview  = true
+    match {
+      expr {
+        expression = "evaluatePreconfiguredWaf('protocolattack-v422-stable', {'sensitivity': 1})"
+      }
+    }
+    description = "OWASP protocol attack (preview)."
+  }
+
+  rule {
+    action   = "deny(403)"
+    priority = 902
+    preview  = true
+    match {
+      expr {
+        expression = "evaluatePreconfiguredWaf('lfi-v422-stable', {'sensitivity': 1})"
+      }
+    }
+    description = "OWASP LFI (preview)."
+  }
+
+  rule {
+    action   = "deny(403)"
+    priority = 903
+    preview  = true
+    match {
+      expr {
+        expression = "evaluatePreconfiguredWaf('rfi-v422-stable', {'sensitivity': 1})"
+      }
+    }
+    description = "OWASP RFI (preview)."
+  }
+
+  rule {
+    action   = "deny(403)"
+    priority = 904
+    preview  = true
+    match {
+      expr {
+        expression = "evaluatePreconfiguredWaf('rce-v422-stable', {'sensitivity': 1})"
+      }
+    }
+    description = "OWASP RCE (preview)."
+  }
+
+  rule {
+    action   = "deny(403)"
+    priority = 905
+    preview  = true
+    match {
+      expr {
+        expression = "evaluatePreconfiguredWaf('scannerdetection-v422-stable', {'sensitivity': 1})"
+      }
+    }
+    description = "OWASP scanner detection (preview)."
+  }
+
   rule {
     action   = "rate_based_ban"
     priority = 1000
@@ -98,7 +178,7 @@ resource "google_compute_security_policy" "relay" {
       exceed_action  = "deny(429)"
       enforce_on_key = "IP"
       rate_limit_threshold {
-        count        = 120
+        count        = 10
         interval_sec = 60
       }
       ban_duration_sec = 300

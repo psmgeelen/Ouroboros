@@ -3,6 +3,11 @@ output "wif_provider" {
   value       = google_iam_workload_identity_pool_provider.github.name
 }
 
+output "github_build" {
+  description = "Registry writer for the main build. It cannot deploy Cloud Run."
+  value       = google_service_account.github_build.email
+}
+
 output "github_deploy_dev" {
   value = google_service_account.github_deploy_dev.email
 }

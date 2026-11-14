@@ -13,6 +13,6 @@ task setup
 task ci
 ```
 
-`task setup` installs Grype, the git hooks, and commitlint. Those hooks already cover whitespace, YAML, Grype, Rustfmt, Terraform fmt, and Dart format. `task ci` runs the crate, relay, mobile, and infra checks in parallel and does not repeat the whitespace or Grype hooks.
+`task setup` installs Grype, the git hooks, and commitlint. Those hooks already cover whitespace, YAML, Gitleaks, Grype, Rustfmt, Terraform fmt, and Dart format. `task ci` runs those hooks plus the crate, relay, mobile, and infra checks in parallel.
 
 Commits use [Conventional Commits](https://www.conventionalcommits.org/). A message such as `update stuff` is rejected. A message such as `chore: scaffold the ouroboros repository` is accepted.

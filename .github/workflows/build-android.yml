@@ -1,0 +1,40 @@
+name: build-android
+
+# main builds the APK and stores it for a later promotion. It does not
+# create a GitHub Release and it does not deploy.
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/mobile/lib/**
+      - apps/mobile/test/**
+      - apps/mobile/android/**
+      - apps/mobile/pubspec.yaml
+      - apps/mobile/pubspec.lock
+      - apps/mobile/analysis_options.yaml
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.50.0"
+      - run: bash scripts/install-task.sh
+      - run: task ci:mobile
+      - name: Android APK
+        run: |
+          set -euo pipefail
+          (cd apps/mobile && flutter build apk --release --build-number="${{ github.run_number }}")
+          cp apps/mobile/build/app/outputs/flutter-apk/app-release.apk ouroboros-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ouroboros-android-${{ github.sha }}
+          path: ouroboros-android.apk
+          if-no-files-found: error

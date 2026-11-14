@@ -72,24 +72,34 @@ tasks:
       - cmd: |
           if [ -d infra/app/stacks/bootstrap ] && [ -f infra/app/stacks/bootstrap/versions.tf ]; then
             terraform -chdir=infra/app/stacks/bootstrap fmt -check
+            rm -f infra/app/stacks/bootstrap/.terraform/terraform.tfstate
             terraform -chdir=infra/app/stacks/bootstrap init -backend=false -input=false
             terraform -chdir=infra/app/stacks/bootstrap validate
           fi
       - cmd: |
           if [ -f infra/app/stacks/relay/versions.tf ]; then
             terraform -chdir=infra/app/stacks/relay fmt -check
+            rm -f infra/app/stacks/relay/.terraform/terraform.tfstate
             terraform -chdir=infra/app/stacks/relay init -backend=false -input=false
             terraform -chdir=infra/app/stacks/relay validate
           fi
 
   ci:
     desc: Check each codebase. The checks run in parallel.
-    deps: [ci:core, ci:relay, ci:mobile, ci:bootstrap, ci:relay-stack, ci:workflows, ci:commitlint]
+    deps: [ci:hooks, ci:core, ci:relay, ci:mobile, ci:bootstrap, ci:relay-stack, ci:workflows, ci:commitlint]
 
   ci:hooks:
-    desc: Run whitespace, YAML, Gitleaks, and Grype pre-commit hooks
+    desc: Run pre-commit hooks (GitHub Actions skips formatters; local runs them)
     cmds:
-      - SKIP=commitlint,rustfmt,terraform-fmt,flutter-format pre-commit run --all-files
+      - |
+        # The hooks job has no Rust/Flutter/Terraform. Directory jobs cover
+        # format --check there. Locally, run the formatters too.
+        if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+          export SKIP=commitlint,rustfmt,terraform-fmt,flutter-format
+        else
+          export SKIP=commitlint
+        fi
+        pre-commit run --all-files
 
   ci:core:
     desc: Format, lint, and test crates/core
@@ -115,6 +125,7 @@ tasks:
     desc: Format and validate infra/app/stacks/bootstrap
     cmds:
       - terraform -chdir=infra/app/stacks/bootstrap fmt -check
+      - rm -f infra/app/stacks/bootstrap/.terraform/terraform.tfstate
       - terraform -chdir=infra/app/stacks/bootstrap init -backend=false -input=false
       - terraform -chdir=infra/app/stacks/bootstrap validate
 
@@ -122,6 +133,7 @@ tasks:
     desc: Format and validate infra/app/stacks/relay
     cmds:
       - terraform -chdir=infra/app/stacks/relay fmt -check
+      - rm -f infra/app/stacks/relay/.terraform/terraform.tfstate
       - terraform -chdir=infra/app/stacks/relay init -backend=false -input=false
       - terraform -chdir=infra/app/stacks/relay validate
 

@@ -1,0 +1,47 @@
+name: build-ios
+
+# main builds the IPA when Apple signing secrets exist. It does not
+# create a GitHub Release and it does not publish an unsigned build.
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/mobile/lib/**
+      - apps/mobile/test/**
+      - apps/mobile/ios/**
+      - apps/mobile/pubspec.yaml
+      - apps/mobile/pubspec.lock
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    environment: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.50.0"
+      - name: iOS IPA
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          if [ -z "$APPLE_CERTIFICATE_BASE64" ] || [ -z "$APPLE_PROVISIONING_PROFILE_BASE64" ]; then
+            echo "Apple signing secrets are absent; not publishing an unsigned build"
+            echo "skipped" > out/skipped
+            exit 0
+          fi
+          (cd apps/mobile && flutter build ipa --release)
+          cp apps/mobile/build/ios/ipa/*.ipa out/ouroboros-ios.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ouroboros-ios-${{ github.sha }}
+          path: out/
+          if-no-files-found: error

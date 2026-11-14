@@ -97,10 +97,17 @@ resource "google_service_account" "relay_runtime_prod" {
   display_name = "Relay runtime prod"
 }
 
-# Release jobs set a GitHub environment, so the OIDC subject is the
-# immutable environment claim, not refs/heads. Owner 30153353, repo 1457826099.
+# Jobs set a GitHub environment, so the OIDC subject is the immutable
+# environment claim, not refs/heads. Owner 30153353, repo 1457826099.
+# environment:build is main only and can push images, not deploy Cloud Run.
 locals {
   github_subject_prefix = "repo:psmgeelen@30153353/Ouroboros@1457826099"
+}
+
+resource "google_service_account" "github_build" {
+  project      = var.devops_project_id
+  account_id   = "github-build"
+  display_name = "GitHub build main"
 }
 
 resource "google_service_account_iam_member" "wif_dev" {
@@ -128,6 +135,20 @@ resource "google_service_account_iam_member" "wif_prod_token" {
   service_account_id = google_service_account.github_deploy_prod.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "principal://iam.googleapis.com/projects/${var.devops_project_number}/locations/global/workloadIdentityPools/github/subject/${local.github_subject_prefix}:environment:prod"
+  depends_on         = [google_iam_workload_identity_pool_provider.github]
+}
+
+resource "google_service_account_iam_member" "wif_build" {
+  service_account_id = google_service_account.github_build.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principal://iam.googleapis.com/projects/${var.devops_project_number}/locations/global/workloadIdentityPools/github/subject/${local.github_subject_prefix}:environment:build"
+  depends_on         = [google_iam_workload_identity_pool_provider.github]
+}
+
+resource "google_service_account_iam_member" "wif_build_token" {
+  service_account_id = google_service_account.github_build.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "principal://iam.googleapis.com/projects/${var.devops_project_number}/locations/global/workloadIdentityPools/github/subject/${local.github_subject_prefix}:environment:build"
   depends_on         = [google_iam_workload_identity_pool_provider.github]
 }
 
@@ -170,6 +191,14 @@ resource "google_artifact_registry_repository_iam_member" "deploy_prod_writer" {
   repository = google_artifact_registry_repository.relay.repository_id
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.github_deploy_prod.email}"
+}
+
+resource "google_artifact_registry_repository_iam_member" "build_writer" {
+  project    = var.devops_project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.relay.repository_id
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.github_build.email}"
 }
 
 resource "google_artifact_registry_repository_iam_member" "runtime_dev_reader" {
