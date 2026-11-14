@@ -7,7 +7,7 @@ terraform {
     }
   }
   backend "gcs" {
-    bucket = "ouroboros-devops-tfstate"
+    bucket = "tf-state-ouroboros"
   }
 }
 

@@ -23,6 +23,8 @@ The directory jobs run in parallel. A docs-only change runs `hooks` and `commitl
 
 `prod` runs `.github/workflows/release-prod.yml`, authenticates as `github-deploy-prod@ouroboros-prod-514714.iam.gserviceaccount.com`, and deploys project `ouroboros-prod-514714`.
 
+Both releases push the relay image only to `europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay`. Each image gets two tags and two labels: the semver (`0.0.1`, or `0.0.1-dev.1` on dev) and the environment (`prod` or `dev`). Cloud Run is updated to the semver tag. There is no Artifact Registry in the environment projects. Terraform state for those applies is `gs://tf-state-ouroboros` with prefix `dev` or `prod`.
+
 ## Variables
 
 GitHub environments `dev` and `prod` hold:

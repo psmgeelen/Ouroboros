@@ -34,24 +34,40 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23"
-      - uses: google-github-actions/auth@v2
+      - id: auth
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
       - run: npm ci
       - run: task ci
-      - run: npx semantic-release
+      - id: release
+        run: |
+          set -euo pipefail
+          npx semantic-release
+          tag=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+          if [ -z "${tag}" ]; then
+            echo "semantic-release did not tag this commit"
+            exit 1
+          fi
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
-      - run: |
-          docker build -f services/relay/Dockerfile -t "$IMAGE_SHA" -t "$IMAGE_ENV" .
-          docker push "$IMAGE_SHA"
-          docker push "$IMAGE_ENV"
-        env:
-          IMAGE_SHA: europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ github.sha }}
-          IMAGE_ENV: europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:prod
-      - run: task infra:up ENV=prod
+      - name: Publish relay image
+        run: |
+          set -euo pipefail
+          registry=europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay
+          echo "${{ steps.auth.outputs.access_token }}" | docker login -u oauth2accesstoken --password-stdin https://europe-west1-docker.pkg.dev
+          docker build -f services/relay/Dockerfile \
+            --label org.opencontainers.image.version="${{ steps.release.outputs.version }}" \
+            --label environment=prod \
+            -t "${registry}:${{ steps.release.outputs.version }}" \
+            -t "${registry}:prod" \
+            .
+          docker push "${registry}:${{ steps.release.outputs.version }}"
+          docker push "${registry}:prod"
+      - run: task infra:up ENV=prod IMAGE=europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ steps.release.outputs.version }}
       - name: Android APK
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

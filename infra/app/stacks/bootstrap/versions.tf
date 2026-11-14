@@ -6,6 +6,10 @@ terraform {
       version = "~> 6.0"
     }
   }
+  backend "gcs" {
+    bucket = "tf-state-ouroboros"
+    prefix = "bootstrap"
+  }
 }
 
 provider "google" {

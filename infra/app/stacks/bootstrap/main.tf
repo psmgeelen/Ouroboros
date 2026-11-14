@@ -13,7 +13,6 @@ locals {
     "compute.googleapis.com",
     "secretmanager.googleapis.com",
     "cloudtasks.googleapis.com",
-    "artifactregistry.googleapis.com",
     "iam.googleapis.com",
     "storage.googleapis.com",
     "certificatemanager.googleapis.com",
@@ -40,21 +39,6 @@ resource "google_project_service" "prod" {
   project            = var.prod_project_id
   service            = each.value
   disable_on_destroy = false
-}
-
-resource "google_storage_bucket" "tfstate" {
-  project                     = var.devops_project_id
-  name                        = "ouroboros-devops-tfstate"
-  location                    = var.region
-  uniform_bucket_level_access = true
-  public_access_prevention    = "enforced"
-  force_destroy               = false
-
-  versioning {
-    enabled = true
-  }
-
-  depends_on = [google_project_service.devops]
 }
 
 resource "google_artifact_registry_repository" "relay" {
@@ -127,6 +111,20 @@ resource "google_service_account_iam_member" "wif_prod" {
   depends_on         = [google_iam_workload_identity_pool_provider.github]
 }
 
+resource "google_service_account_iam_member" "wif_dev_token" {
+  service_account_id = google_service_account.github_deploy_dev.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "principal://iam.googleapis.com/projects/${var.devops_project_number}/locations/global/workloadIdentityPools/github/subject/repo:psmgeelen/Ouroboros:ref:refs/heads/dev"
+  depends_on         = [google_iam_workload_identity_pool_provider.github]
+}
+
+resource "google_service_account_iam_member" "wif_prod_token" {
+  service_account_id = google_service_account.github_deploy_prod.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "principal://iam.googleapis.com/projects/${var.devops_project_number}/locations/global/workloadIdentityPools/github/subject/repo:psmgeelen/Ouroboros:ref:refs/heads/prod"
+  depends_on         = [google_iam_workload_identity_pool_provider.github]
+}
+
 locals {
   deploy_roles = [
     "roles/run.admin",
@@ -135,7 +133,6 @@ locals {
     "roles/cloudtasks.admin",
     "roles/storage.admin",
     "roles/iam.serviceAccountUser",
-    "roles/artifactregistry.reader",
   ]
 }
 
@@ -185,14 +182,38 @@ resource "google_artifact_registry_repository_iam_member" "runtime_prod_reader" 
   member     = "serviceAccount:${google_service_account.relay_runtime_prod.email}"
 }
 
+data "google_project" "dev" {
+  project_id = var.dev_project_id
+}
+
+data "google_project" "prod" {
+  project_id = var.prod_project_id
+}
+
+resource "google_artifact_registry_repository_iam_member" "cloudrun_dev_reader" {
+  project    = var.devops_project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.relay.repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:service-${data.google_project.dev.number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
+resource "google_artifact_registry_repository_iam_member" "cloudrun_prod_reader" {
+  project    = var.devops_project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.relay.repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:service-${data.google_project.prod.number}@serverless-robot-prod.iam.gserviceaccount.com"
+}
+
 resource "google_storage_bucket_iam_member" "state_dev" {
-  bucket = google_storage_bucket.tfstate.name
+  bucket = "tf-state-ouroboros"
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.github_deploy_dev.email}"
 }
 
 resource "google_storage_bucket_iam_member" "state_prod" {
-  bucket = google_storage_bucket.tfstate.name
+  bucket = "tf-state-ouroboros"
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.github_deploy_prod.email}"
 }

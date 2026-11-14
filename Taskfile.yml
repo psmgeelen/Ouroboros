@@ -168,7 +168,7 @@ tasks:
         GCP_AUTH_WITH_PROJECT_NUMBER=1
         # shellcheck disable=SC1091
         source scripts/gcp-user-auth.sh
-        terraform -chdir=infra/app/stacks/bootstrap init -input=false
+        terraform -chdir=infra/app/stacks/bootstrap init -input=false -reconfigure
         terraform -chdir=infra/app/stacks/bootstrap apply -input=false -auto-approve
 
   infra:up:
@@ -183,6 +183,12 @@ tasks:
         # shellcheck disable=SC1091
         source scripts/gcp-user-auth.sh
         terraform -chdir=infra/app/stacks/relay init -input=false -reconfigure -backend-config=prefix={{.ENV}}
-        terraform -chdir=infra/app/stacks/relay apply -input=false -auto-approve -var-file={{.ENV}}.tfvars
+        image_var=""
+        if [ -n "{{.IMAGE}}" ]; then
+          image_var="-var image={{.IMAGE}}"
+        fi
+        # shellcheck disable=SC2086
+        terraform -chdir=infra/app/stacks/relay apply -input=false -auto-approve -var-file={{.ENV}}.tfvars $image_var
     vars:
       ENV: '{{.ENV | default "dev"}}'
+      IMAGE: '{{.IMAGE | default ""}}'

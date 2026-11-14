@@ -6,7 +6,7 @@
 
 Dev cannot apply prod. The dev workflow calls `task infra:up ENV=dev` and does not reference the prod project. The prod workflow calls `task infra:up ENV=prod` and does not reference the dev project.
 
-The image URL and the runtime service account email are inputs. The relay stack does not create the GitHub deploy accounts.
+The image URL and the runtime service account email are inputs. The relay stack does not create the GitHub deploy accounts. State for this stack is `gs://tf-state-ouroboros` with prefix `dev` or `prod`. The image is pulled from the single devops Artifact Registry. A release tags that image with the semver and with `dev` or `prod`.
 
 ## Dev deploy record
 
