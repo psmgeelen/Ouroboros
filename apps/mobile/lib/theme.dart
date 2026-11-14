@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 /// Forest green seed for the Material 3 color system.
+/// Used as the sole brand accent across light and dark themes.
 const Color forestGreen = Color(0xFF228B22);
 
 /// Plain Material 3 theme. Light and dark both come from [forestGreen].

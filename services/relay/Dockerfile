@@ -7,6 +7,7 @@ RUN cargo build --release -p ouroboros-relay
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=build /src/target/release/ouroboros-relay /ouroboros-relay
+# Immutable tags come from build-relay on main; promote workflows retag for env/version.
 USER nonroot:nonroot
 ENV SQLITE_PATH=/tmp/relay.sqlite
 ENV SNAPSHOT_PATH=/tmp/relay.snapshot
