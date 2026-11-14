@@ -1,0 +1,5 @@
+project_id              = "ouroboros-prod-514714"
+region                  = "europe-west1"
+image                   = "europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:prod"
+runtime_service_account = "relay-runtime-prod@ouroboros-prod-514714.iam.gserviceaccount.com"
+pepper                  = "replace-after-bootstrap"
