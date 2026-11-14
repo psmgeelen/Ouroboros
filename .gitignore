@@ -1,0 +1,51 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Flutter
+apps/mobile/.dart_tool/
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/.packages
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/ios/Pods/
+apps/mobile/ios/.symlinks/
+
+# Terraspace and Terraform
+infra/.terraspace-cache/
+infra/log/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Secrets and signing
+.env
+.env.*
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.pem
+
+# Relay snapshots and local databases
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+/snapshots/
+
+# Node
+node_modules/
+
+# Editor
+.idea/
+*.iml
+.DS_Store

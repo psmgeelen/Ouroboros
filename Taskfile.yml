@@ -1,0 +1,138 @@
+version: "3"
+
+tasks:
+  setup:
+    desc: Install pre-commit hooks and commitlint
+    cmds:
+      - npm install
+      - pre-commit install
+      - pre-commit install --hook-type commit-msg
+
+  fmt:
+    desc: Format Rust, Terraform, and Dart
+    cmds:
+      - cmd: cargo fmt --all
+        ignore_error: false
+      - cmd: terraform fmt -recursive infra
+      - cmd: |
+          if [ -f apps/mobile/pubspec.yaml ]; then
+            dart format apps/mobile/lib apps/mobile/test
+          fi
+
+  lint:
+    desc: Lint Rust, workflows, and the partner export ban
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then
+            cargo clippy --workspace --all-targets -- -D warnings
+          fi
+      - task: lint:actions
+      - task: lint:partner-export
+      - task: lint:ci-workflow
+
+  lint:actions:
+    internal: true
+    cmds:
+      - cmd: |
+          if ls .github/workflows/*.yml >/dev/null 2>&1; then
+            if command -v actionlint >/dev/null 2>&1; then
+              actionlint
+            else
+              go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+              "$(go env GOPATH)/bin/actionlint"
+            fi
+          fi
+
+  lint:partner-export:
+    internal: true
+    cmds:
+      - bash scripts/check-partner-export.sh
+
+  lint:ci-workflow:
+    internal: true
+    cmds:
+      - bash scripts/check-ci-workflow.sh
+
+  test:
+    desc: Run Rust, Flutter, Terraform, and commitlint fixture tests
+    cmds:
+      - bash scripts/commitlint-fixture.sh
+      - cmd: |
+          if [ -f Cargo.toml ]; then
+            cargo test --workspace
+          fi
+      - cmd: |
+          if [ -f apps/mobile/pubspec.yaml ]; then
+            (cd apps/mobile && flutter test)
+          fi
+      - cmd: |
+          if [ -d infra/app/stacks/bootstrap ] && [ -f infra/app/stacks/bootstrap/versions.tf ]; then
+            terraform -chdir=infra/app/stacks/bootstrap fmt -check
+            terraform -chdir=infra/app/stacks/bootstrap init -backend=false -input=false
+            terraform -chdir=infra/app/stacks/bootstrap validate
+          fi
+      - cmd: |
+          if [ -f infra/app/stacks/relay/versions.tf ]; then
+            terraform -chdir=infra/app/stacks/relay fmt -check
+            terraform -chdir=infra/app/stacks/relay init -backend=false -input=false
+            terraform -chdir=infra/app/stacks/relay validate
+          fi
+
+  ci:
+    desc: Format check, lint, and test
+    cmds:
+      - cmd: |
+          if [ -f Cargo.toml ]; then
+            cargo fmt --all -- --check
+          fi
+      - cmd: terraform fmt -recursive -check infra
+      - cmd: |
+          if [ -f apps/mobile/pubspec.yaml ]; then
+            (cd apps/mobile && dart format --set-exit-if-changed lib test && flutter analyze)
+          fi
+      - task: lint
+      - task: test
+
+  mobile:apk:
+    desc: Build the signed Android APK
+    cmds:
+      - cmd: |
+          if [ ! -f apps/mobile/pubspec.yaml ]; then
+            echo "the app is not created yet" >&2
+            exit 1
+          fi
+          (cd apps/mobile && flutter build apk --release)
+
+  mobile:ipa:
+    desc: Build the signed iOS IPA
+    cmds:
+      - cmd: |
+          if [ ! -f apps/mobile/pubspec.yaml ]; then
+            echo "the app is not created yet" >&2
+            exit 1
+          fi
+          (cd apps/mobile && flutter build ipa --release)
+
+  infra:fmt:
+    desc: Format Terraform
+    cmds:
+      - terraform fmt -recursive infra
+
+  infra:bootstrap:
+    desc: Apply the bootstrap stack with local admin credentials
+    cmds:
+      - terraform -chdir=infra/app/stacks/bootstrap init -input=false
+      - terraform -chdir=infra/app/stacks/bootstrap apply -input=false -auto-approve
+
+  infra:up:
+    desc: Apply the relay stack for ENV=dev or ENV=prod
+    cmds:
+      - |
+        if [ "{{.ENV}}" != "dev" ] && [ "{{.ENV}}" != "prod" ]; then
+          echo "ENV must be dev or prod" >&2
+          exit 1
+        fi
+        terraform -chdir=infra/app/stacks/relay init -input=false -reconfigure -backend-config=prefix={{.ENV}}
+        terraform -chdir=infra/app/stacks/relay apply -input=false -auto-approve -var-file={{.ENV}}.tfvars
+    vars:
+      ENV: '{{.ENV | default "dev"}}'

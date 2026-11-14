@@ -1,0 +1,34 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: commitlint
+        name: commitlint
+        entry: npx --no-install commitlint --edit
+        language: system
+        stages: [commit-msg]
+      - id: rustfmt
+        name: rustfmt
+        entry: cargo fmt --all
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: terraform-fmt
+        name: terraform fmt
+        entry: terraform fmt -recursive infra
+        language: system
+        pass_filenames: false
+        files: \.tf$
+      - id: flutter-format
+        name: flutter format
+        entry: dart format apps/mobile/lib apps/mobile/test
+        language: system
+        types: [dart]
+        pass_filenames: false
