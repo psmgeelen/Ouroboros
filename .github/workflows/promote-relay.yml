@@ -18,6 +18,16 @@ on:
         description: Retag the main SHA image and run semantic-release
         type: boolean
         default: true
+      image_sha:
+        description: Main build commit to retag (defaults to this branch tip)
+        type: string
+        required: false
+        default: ""
+      version:
+        description: Version label without v (defaults to release tag on that commit)
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -104,42 +114,58 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ENV_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_SHA: ${{ github.event.inputs.image_sha }}
         run: |
           set -euo pipefail
-          npx semantic-release
-          if [ "$ENV_NAME" = "prod" ]; then
-            tag=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+          sha="${INPUT_SHA:-$GITHUB_SHA}"
+          if [ -n "${INPUT_VERSION}" ]; then
+            echo "VERSION=${INPUT_VERSION}" >> "$GITHUB_ENV"
+            echo "IMAGE_SHA=${sha}" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
+            npx semantic-release
           else
-            tag=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9]+$' | sort -V | tail -1 || true)
+            # Manual retag of an already-cut release; do not invent a new version.
+            npx semantic-release || true
+          fi
+          if [ "$ENV_NAME" = "prod" ]; then
+            tag=$(git tag --points-at "$sha" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+          else
+            tag=$(git tag --points-at "$sha" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-dev\.[0-9]+$' | sort -V | tail -1 || true)
           fi
           if [ -n "${tag}" ]; then
             echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
           fi
+          echo "IMAGE_SHA=${sha}" >> "$GITHUB_ENV"
       - id: image
         env:
           ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-          SHA: ${{ github.sha }}
           ENV_NAME: ${{ github.ref_name }}
           SOURCE_CHANGED: ${{ needs.changes.outputs.source }}
+          INPUT_SHA: ${{ github.event.inputs.image_sha }}
         run: |
           set -euo pipefail
           if [ "$ENV_NAME" != "dev" ] && [ "$ENV_NAME" != "prod" ]; then
             echo "promotion requires the dev or prod branch"
             exit 1
           fi
+          sha="${IMAGE_SHA:-${INPUT_SHA:-$GITHUB_SHA}}"
           version="${VERSION:-}"
           registry=europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay
           image="${registry}:${ENV_NAME}"
           if [ "$SOURCE_CHANGED" = "true" ]; then
             echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin https://europe-west1-docker.pkg.dev
-            if ! docker pull "${registry}:${SHA}"; then
+            if ! docker pull "${registry}:${sha}"; then
               echo "the image has to be built on main first"
               exit 1
             fi
-            docker tag "${registry}:${SHA}" "${registry}:${ENV_NAME}"
+            docker tag "${registry}:${sha}" "${registry}:${ENV_NAME}"
             docker push "${registry}:${ENV_NAME}"
             if [ -n "$version" ]; then
-              docker tag "${registry}:${SHA}" "${registry}:${version}"
+              docker tag "${registry}:${sha}" "${registry}:${version}"
               docker push "${registry}:${version}"
               image="${registry}:${version}"
             fi
