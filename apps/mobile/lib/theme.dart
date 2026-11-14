@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Forest green seed for the Material 3 color system.
 const Color forestGreen = Color(0xFF228B22);

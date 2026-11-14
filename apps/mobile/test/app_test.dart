@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ouroboros/backup.dart';
 import 'package:ouroboros/export.dart';
@@ -245,9 +245,8 @@ void main() {
   });
 
   test('android backup is disabled and ios exclusion lists both sandboxes', () {
-    final manifest = File(
-      'android/app/src/main/AndroidManifest.xml',
-    ).readAsStringSync();
+    final manifest = File('android/app/src/main/AndroidManifest.xml')
+        .readAsStringSync();
     expect(manifest.contains('android:allowBackup="false"'), isTrue);
     final main = File('lib/main.dart').readAsStringSync();
     expect(main.contains('excludeSandboxesFromBackup'), isTrue);

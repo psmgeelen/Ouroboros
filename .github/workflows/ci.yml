@@ -1,7 +1,7 @@
 name: ci
 
 # Tests only. This workflow does not deploy, push an image, or run terraspace.
-# Whitespace, YAML, and Grype are the existing pre-commit hooks.
+# Whitespace, YAML, Gitleaks, and Grype are the existing pre-commit hooks.
 # Each codebase has its own job and runs only when its directory changes.
 on:
   pull_request:
@@ -112,7 +112,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: "3.35.3"
+          flutter-version: "3.50.0"
       - run: bash scripts/install-task.sh
       - run: task ci:mobile
 
