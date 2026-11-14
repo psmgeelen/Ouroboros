@@ -1,0 +1,90 @@
+name: release-prod
+
+# prod tags look like vX.Y.Z
+on:
+  push:
+    branches: [prod]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+      - uses: hashicorp/setup-terraform@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+      - run: npm ci
+      - run: task ci
+      - run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+      - run: docker build -f services/relay/Dockerfile -t "$IMAGE" .
+        env:
+          IMAGE: europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ github.sha }}
+      - run: docker push "$IMAGE"
+        env:
+          IMAGE: europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ github.sha }}
+      - run: task infra:up ENV=prod
+      - name: Android APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Android signing secret is absent; not publishing an unsigned build"
+            exit 0
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/upload.jks
+          (cd apps/mobile && flutter build apk --release)
+          cp apps/mobile/build/app/outputs/flutter-apk/app-release.apk ouroboros-android.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ouroboros-android.apk
+          fail_on_unmatched_files: false
+
+  ios:
+    runs-on: macos-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: iOS IPA
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE_BASE64" ] || [ -z "$APPLE_PROVISIONING_PROFILE_BASE64" ]; then
+            echo "Apple signing secrets are absent; not publishing an unsigned build"
+            exit 0
+          fi
+          (cd apps/mobile && flutter build ipa --release)
+          cp apps/mobile/build/ios/ipa/*.ipa ouroboros-ios.ipa
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ouroboros-ios.ipa
+          fail_on_unmatched_files: false
