@@ -117,12 +117,14 @@ resource "google_service_account_iam_member" "wif_dev" {
   service_account_id = google_service_account.github_deploy_dev.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principal://iam.googleapis.com/projects/${var.devops_project_number}/locations/global/workloadIdentityPools/github/subject/repo:psmgeelen/Ouroboros:ref:refs/heads/dev"
+  depends_on         = [google_iam_workload_identity_pool_provider.github]
 }
 
 resource "google_service_account_iam_member" "wif_prod" {
   service_account_id = google_service_account.github_deploy_prod.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principal://iam.googleapis.com/projects/${var.devops_project_number}/locations/global/workloadIdentityPools/github/subject/repo:psmgeelen/Ouroboros:ref:refs/heads/prod"
+  depends_on         = [google_iam_workload_identity_pool_provider.github]
 }
 
 locals {

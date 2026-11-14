@@ -14,9 +14,10 @@ They also need `roles/owner` or an equivalent set: `serviceusage.serviceUsageAdm
 
 ## Order
 
-1. `gcloud projects describe ouroboros-devops --format='value(projectNumber)'`
-2. `terraform -chdir=infra/app/stacks/bootstrap init -input=false`
-3. `terraform -chdir=infra/app/stacks/bootstrap apply -var devops_project_number=NUMBER`
+1. `gcloud auth login` as an admin on the three projects.
+2. `task infra:bootstrap`, or `terraspace up bootstrap` from `infra/`.
+
+`infra/config/hooks/terraform.rb` runs before Terraspace `init`, `plan`, and `apply`. It sets `GOOGLE_OAUTH_ACCESS_TOKEN` from `gcloud auth print-access-token` and, for the bootstrap stack, sets `TF_VAR_devops_project_number` from `gcloud projects describe ouroboros-devops`. GitHub Actions skips this hook and uses Workload Identity. `task infra:bootstrap` sources `scripts/gcp-user-auth.sh` for the same token refresh, because that task calls Terraform directly and keeps the existing local state file.
 4. Copy the `wif_provider` output into the GitHub environments `dev` and `prod` as `WIF_PROVIDER`.
 5. Set `WIF_SERVICE_ACCOUNT` to the deploy account for that environment.
 6. Store Android and Apple signing material as GitHub secrets. Do not commit them.
@@ -33,4 +34,8 @@ Bootstrap does not create Cloud Run, the load balancer, or snapshot buckets.
 
 ## Apply record
 
-Attempted on 14 November 2026. `gcloud projects describe ouroboros-devops` could not run: `pieter@geelen.io` needs an interactive `gcloud auth login`, and the other configured accounts are expired, deleted, or not allowed to read that project. The bootstrap stack was not applied. The WIF provider name is not recorded because there is no apply output yet. Re-run `task infra:bootstrap` after `TF_VAR_devops_project_number` is set from `gcloud projects describe ouroboros-devops --format='value(projectNumber)'`.
+Applied on 14 November 2026 with local admin credentials for `pieter@geelen.io`. Terraform used `GOOGLE_OAUTH_ACCESS_TOKEN` from `gcloud auth print-access-token` because the application-default credential still returned `invalid_rapt`.
+
+`devops_project_number` is `461942996777`.
+
+The Workload Identity provider name is `projects/461942996777/locations/global/workloadIdentityPools/github/providers/github`. Set that as `WIF_PROVIDER` in the GitHub environments `dev` and `prod`. Set `WIF_SERVICE_ACCOUNT` to the deploy account for that environment.

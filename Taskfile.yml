@@ -1,5 +1,8 @@
 version: "3"
 
+env:
+  TS_VERSION_CHECK: "0"
+
 tasks:
   setup:
     desc: Install pre-commit hooks and commitlint
@@ -79,19 +82,58 @@ tasks:
           fi
 
   ci:
-    desc: Format check, lint, and test
+    desc: Check each codebase. The checks run in parallel.
+    deps: [ci:core, ci:relay, ci:mobile, ci:bootstrap, ci:relay-stack, ci:workflows, ci:commitlint]
+
+  ci:hooks:
+    desc: Run the existing pre-commit hooks that do not need a language toolchain
     cmds:
-      - cmd: |
-          if [ -f Cargo.toml ]; then
-            cargo fmt --all -- --check
-          fi
-      - cmd: terraform fmt -recursive -check infra
-      - cmd: |
-          if [ -f apps/mobile/pubspec.yaml ]; then
-            (cd apps/mobile && dart format --set-exit-if-changed lib test && flutter analyze)
-          fi
-      - task: lint
-      - task: test
+      - pre-commit run --all-files trailing-whitespace end-of-file-fixer check-yaml check-merge-conflict check-added-large-files
+
+  ci:core:
+    desc: Format, lint, and test crates/core
+    cmds:
+      - cargo fmt -p ouroboros-core -- --check
+      - cargo clippy -p ouroboros-core --all-targets -- -D warnings
+      - cargo test -p ouroboros-core
+
+  ci:relay:
+    desc: Format, lint, and test services/relay
+    cmds:
+      - cargo fmt -p ouroboros-relay -- --check
+      - cargo clippy -p ouroboros-relay --all-targets -- -D warnings
+      - cargo test -p ouroboros-relay
+
+  ci:mobile:
+    desc: Format, analyze, and test apps/mobile
+    cmds:
+      - bash -c 'cd apps/mobile && dart format --set-exit-if-changed lib test && flutter analyze && flutter test'
+      - bash scripts/check-partner-export.sh
+
+  ci:bootstrap:
+    desc: Format and validate infra/app/stacks/bootstrap
+    cmds:
+      - terraform -chdir=infra/app/stacks/bootstrap fmt -check
+      - terraform -chdir=infra/app/stacks/bootstrap init -backend=false -input=false
+      - terraform -chdir=infra/app/stacks/bootstrap validate
+
+  ci:relay-stack:
+    desc: Format and validate infra/app/stacks/relay
+    cmds:
+      - terraform -chdir=infra/app/stacks/relay fmt -check
+      - terraform -chdir=infra/app/stacks/relay init -backend=false -input=false
+      - terraform -chdir=infra/app/stacks/relay validate
+
+  ci:workflows:
+    desc: Lint .github/workflows
+    cmds:
+      - task: lint:actions
+      - task: lint:ci-workflow
+
+  ci:commitlint:
+    desc: Reject a commit message that is not a Conventional Commit
+    cmds:
+      - bash scripts/commitlint-fixture.sh
 
   mobile:apk:
     desc: Build the signed Android APK
@@ -121,8 +163,13 @@ tasks:
   infra:bootstrap:
     desc: Apply the bootstrap stack with local admin credentials
     cmds:
-      - terraform -chdir=infra/app/stacks/bootstrap init -input=false
-      - terraform -chdir=infra/app/stacks/bootstrap apply -input=false -auto-approve
+      - |
+        set -euo pipefail
+        GCP_AUTH_WITH_PROJECT_NUMBER=1
+        # shellcheck disable=SC1091
+        source scripts/gcp-user-auth.sh
+        terraform -chdir=infra/app/stacks/bootstrap init -input=false
+        terraform -chdir=infra/app/stacks/bootstrap apply -input=false -auto-approve
 
   infra:up:
     desc: Apply the relay stack for ENV=dev or ENV=prod
@@ -132,6 +179,9 @@ tasks:
           echo "ENV must be dev or prod" >&2
           exit 1
         fi
+        set -euo pipefail
+        # shellcheck disable=SC1091
+        source scripts/gcp-user-auth.sh
         terraform -chdir=infra/app/stacks/relay init -input=false -reconfigure -backend-config=prefix={{.ENV}}
         terraform -chdir=infra/app/stacks/relay apply -input=false -auto-approve -var-file={{.ENV}}.tfvars
     vars:

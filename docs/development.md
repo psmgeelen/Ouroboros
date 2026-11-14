@@ -2,7 +2,7 @@
 
 ## Branches
 
-- `main` is local development and pull-request checks. CI runs tests and lint. It does not build an image, push a tag, or deploy.
+- `main` is local development and pull-request checks. CI runs one job per codebase and does not build an image, push a tag, or deploy. The map is in [cicd.md](cicd.md).
 - `dev` rolls out project `ouroboros-dev-514714` and publishes prerelease tags.
 - `prod` rolls out project `ouroboros-prod-514714` and publishes release tags.
 

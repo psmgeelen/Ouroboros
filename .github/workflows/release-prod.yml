@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.88.0
+          toolchain: 1.100.0
           components: rustfmt, clippy
       - uses: hashicorp/setup-terraform@v3
       - uses: subosito/flutter-action@v2
@@ -32,6 +32,9 @@ jobs:
       - uses: arduino/setup-task@v2
         with:
           version: 3.x
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
@@ -42,12 +45,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
-      - run: docker build -f services/relay/Dockerfile -t "$IMAGE" .
+      - run: |
+          docker build -f services/relay/Dockerfile -t "$IMAGE_SHA" -t "$IMAGE_ENV" .
+          docker push "$IMAGE_SHA"
+          docker push "$IMAGE_ENV"
         env:
-          IMAGE: europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ github.sha }}
-      - run: docker push "$IMAGE"
-        env:
-          IMAGE: europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ github.sha }}
+          IMAGE_SHA: europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ github.sha }}
+          IMAGE_ENV: europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:prod
       - run: task infra:up ENV=prod
       - name: Android APK
         env:
@@ -61,6 +65,7 @@ jobs:
           (cd apps/mobile && flutter build apk --release)
           cp apps/mobile/build/app/outputs/flutter-apk/app-release.apk ouroboros-android.apk
       - uses: softprops/action-gh-release@v2
+        if: hashFiles('ouroboros-android.apk') != ''
         with:
           files: ouroboros-android.apk
           fail_on_unmatched_files: false
@@ -85,6 +90,7 @@ jobs:
           (cd apps/mobile && flutter build ipa --release)
           cp apps/mobile/build/ios/ipa/*.ipa ouroboros-ios.ipa
       - uses: softprops/action-gh-release@v2
+        if: hashFiles('ouroboros-ios.ipa') != ''
         with:
           files: ouroboros-ios.ipa
           fail_on_unmatched_files: false

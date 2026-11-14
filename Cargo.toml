@@ -5,4 +5,4 @@ members = ["crates/core", "services/relay"]
 [workspace.package]
 edition = "2021"
 license = "UNLICENSED"
-rust-version = "1.88"
+rust-version = "1.100"

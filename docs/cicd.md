@@ -1,6 +1,23 @@
 # CI/CD
 
-`main` runs `.github/workflows/ci.yml`. That workflow runs `task ci` and does not deploy.
+`main` and pull requests run `.github/workflows/ci.yml`. That workflow does not deploy.
+
+Whitespace, end-of-file, YAML, merge conflicts, and large files are the existing pre-commit hooks. CI runs those with `task ci:hooks` and does not install Rust, Flutter, or Terraform for them. Rustfmt, `terraform fmt`, and `dart format` stay in `.pre-commit-config.yaml` for local commits. The matching CI job checks the same format for the directory it owns.
+
+| Job | When it runs | Directory | Task |
+| --- | --- | --- | --- |
+| `hooks` | every pull request and every push to `main` | whole tree | `task ci:hooks` |
+| `commitlint` | every pull request and every push to `main` | commit messages | `task ci:commitlint` |
+| `core` | `crates/core/**`, `Cargo.toml`, `Cargo.lock`, or `rust-toolchain.toml` | `crates/core` | `task ci:core` |
+| `relay` | `services/relay/**` or a workspace file the relay crate compiles with | `services/relay` | `task ci:relay` |
+| `mobile` | `apps/mobile/**` or `scripts/check-partner-export.sh` | `apps/mobile` | `task ci:mobile` |
+| `bootstrap` | `infra/app/stacks/bootstrap/**` or `infra/config/**` | `infra/app/stacks/bootstrap` | `task ci:bootstrap` |
+| `relay-stack` | `infra/app/stacks/relay/**` or `infra/config/**` | `infra/app/stacks/relay` | `task ci:relay-stack` |
+| `workflows` | `.github/workflows/**` or `scripts/check-ci-workflow.sh` | `.github/workflows` | `task ci:workflows` |
+
+The directory jobs run in parallel. A docs-only change runs `hooks` and `commitlint`.
+
+`task ci` runs the same directory checks locally, also in parallel. It does not repeat the pre-commit whitespace hooks.
 
 `dev` runs `.github/workflows/release-dev.yml`, authenticates as `github-deploy-dev@ouroboros-dev-514714.iam.gserviceaccount.com`, and deploys project `ouroboros-dev-514714`.
 

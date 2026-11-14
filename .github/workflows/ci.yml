@@ -1,5 +1,8 @@
 name: ci
 
+# Tests only. This workflow does not deploy, push an image, or run terraspace.
+# Whitespace and YAML are the existing pre-commit hooks.
+# Each codebase has its own job and runs only when its directory changes.
 on:
   pull_request:
   push:
@@ -9,18 +12,64 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+      relay: ${{ steps.filter.outputs.relay }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      bootstrap: ${{ steps.filter.outputs.bootstrap }}
+      relay_stack: ${{ steps.filter.outputs.relay_stack }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'crates/core/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+            relay:
+              - 'services/relay/**'
+              - 'crates/core/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+            mobile:
+              - 'apps/mobile/**'
+              - 'scripts/check-partner-export.sh'
+            bootstrap:
+              - 'infra/app/stacks/bootstrap/**'
+              - 'infra/config/**'
+            relay_stack:
+              - 'infra/app/stacks/relay/**'
+              - 'infra/config/**'
+            workflows:
+              - '.github/workflows/**'
+              - 'scripts/check-ci-workflow.sh'
+
+  hooks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/setup-python@v5
         with:
-          toolchain: 1.88.0
-          components: rustfmt, clippy
-      - uses: hashicorp/setup-terraform@v3
-      - uses: subosito/flutter-action@v2
+          python-version: "3.12"
+      - uses: arduino/setup-task@v2
         with:
-          channel: stable
+          version: 3.x
+      - run: pip install pre-commit
+      - run: task ci:hooks
+
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -28,10 +77,87 @@ jobs:
       - uses: arduino/setup-task@v2
         with:
           version: 3.x
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install pre-commit
       - run: npm ci
-      - run: pre-commit run --all-files
-      - run: task ci
+      - run: task ci:commitlint
+
+  core:
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - run: task ci:core
+
+  relay:
+    needs: changes
+    if: needs.changes.outputs.relay == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          components: rustfmt, clippy
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - run: task ci:relay
+
+  mobile:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - run: task ci:mobile
+
+  bootstrap:
+    needs: changes
+    if: needs.changes.outputs.bootstrap == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - run: task ci:bootstrap
+
+  relay-stack:
+    needs: changes
+    if: needs.changes.outputs.relay_stack == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - run: task ci:relay-stack
+
+  workflows:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - run: task ci:workflows
