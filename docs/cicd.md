@@ -2,7 +2,7 @@
 
 `main` and pull requests run `.github/workflows/ci.yml`. That workflow does not deploy.
 
-Whitespace, end-of-file, YAML, merge conflicts, and large files are the existing pre-commit hooks. CI runs those with `task ci:hooks` and does not install Rust, Flutter, or Terraform for them. Rustfmt, `terraform fmt`, and `dart format` stay in `.pre-commit-config.yaml` for local commits. The matching CI job checks the same format for the directory it owns.
+Whitespace, end-of-file, YAML, merge conflicts, large files, Gitleaks, and Grype (`dir:.`, fail on high or critical) are the existing pre-commit hooks. CI installs Grype with `scripts/install-grype.sh`, runs those hooks with `task ci:hooks`, and does not install Rust, Flutter, or Terraform for them. Rustfmt, `terraform fmt`, and `dart format` stay in `.pre-commit-config.yaml` for local commits. The matching CI job checks the same format for the directory it owns. `.grype.yaml` sets the severity cutoff and path excludes.
 
 | Job | When it runs | Directory | Task |
 | --- | --- | --- | --- |
@@ -42,4 +42,4 @@ These secrets are not in git:
 - `APPLE_CERTIFICATE_BASE64`
 - `APPLE_PROVISIONING_PROFILE_BASE64`
 
-Android signing secret is absent. Apple signing secrets are absent. The release workflows skip the mobile publish step instead of shipping an unsigned build. `ouroboros-android.apk` and `ouroboros-ios.ipa` are the filenames those steps upload when the secrets exist.
+`ANDROID_KEYSTORE_BASE64` is absent. The Android release build uses the debug signing config in `apps/mobile/android/app/build.gradle.kts`, and both release workflows upload `ouroboros-android.apk` to the GitHub release for that tag. The production download uses the latest stable release. Apple signing secrets are absent, so the workflows do not upload an IPA.

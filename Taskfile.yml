@@ -5,9 +5,10 @@ env:
 
 tasks:
   setup:
-    desc: Install pre-commit hooks and commitlint
+    desc: Install pre-commit hooks, Grype, and commitlint
     cmds:
       - npm install
+      - bash scripts/install-grype.sh
       - pre-commit install
       - pre-commit install --hook-type commit-msg
 
@@ -86,7 +87,7 @@ tasks:
     deps: [ci:core, ci:relay, ci:mobile, ci:bootstrap, ci:relay-stack, ci:workflows, ci:commitlint]
 
   ci:hooks:
-    desc: Run the existing pre-commit hooks that do not need a language toolchain
+    desc: Run whitespace, YAML, Gitleaks, and Grype pre-commit hooks
     cmds:
       - SKIP=commitlint,rustfmt,terraform-fmt,flutter-format pre-commit run --all-files
 

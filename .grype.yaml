@@ -1,0 +1,20 @@
+# Fail the scan when a finding is high or critical.
+fail-on-severity: high
+
+# Skip generated trees; lockfiles at the repo root are still scanned.
+exclude:
+  - "./node_modules/**"
+  - "./target/**"
+  - "./apps/mobile/.dart_tool/**"
+  - "./apps/mobile/build/**"
+  - "./infra/.terraspace-cache/**"
+  - "./infra/**/.terraform/**"
+
+ignore:
+  # Grype reads the pubspec.lock SDK lower bound, not the CI Flutter pin (3.35.3).
+  # Clear this when mobile CI moves to Flutter >= 3.41.0. pub.dev deps are vetted per the advisory.
+  - vulnerability: CVE-2026-27704
+    package:
+      name: flutter
+      type: dart-pub
+    reason: "Lockfile SDK bound until Flutter CI pin is >= 3.41.0"

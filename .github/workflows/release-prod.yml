@@ -67,23 +67,25 @@ jobs:
             .
           docker push "${registry}:${{ steps.release.outputs.version }}"
           docker push "${registry}:prod"
-      - run: task infra:up ENV=prod IMAGE=europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ steps.release.outputs.version }}
       - name: Android APK
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        id: apk
         run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "Android signing secret is absent; not publishing an unsigned build"
-            exit 0
-          fi
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > /tmp/upload.jks
-          (cd apps/mobile && flutter build apk --release)
+          set -euo pipefail
+          version="${{ steps.release.outputs.version }}"
+          (cd apps/mobile && flutter build apk --release --build-name="$version" --build-number="${{ github.run_number }}")
           cp apps/mobile/build/app/outputs/flutter-apk/app-release.apk ouroboros-android.apk
+          cp ouroboros-android.apk "ouroboros-android-${version}.apk"
+          echo "built=true" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
-        if: hashFiles('ouroboros-android.apk') != ''
+        if: steps.apk.outputs.built == 'true'
         with:
-          files: ouroboros-android.apk
+          tag_name: v${{ steps.release.outputs.version }}
+          files: |
+            ouroboros-android.apk
+            ouroboros-android-${{ steps.release.outputs.version }}.apk
           fail_on_unmatched_files: false
+          make_latest: true
+      - run: task infra:up ENV=prod IMAGE=europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:${{ steps.release.outputs.version }}
 
   ios:
     runs-on: macos-latest
