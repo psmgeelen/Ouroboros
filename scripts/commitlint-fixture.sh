@@ -19,4 +19,12 @@ if echo "update stuff" | npx --no-install commitlint; then
 fi
 
 echo "chore: scaffold the ouroboros repository" | npx --no-install commitlint
+
+# Long body lines must be accepted (Cursor commit UI does not wrap bullets).
+cat <<'EOF' | npx --no-install commitlint
+chore: update CI/CD configuration and improve security policies
+
+- Implemented advanced security policies for the relay service, including OWASP rules for SQL injection and other vulnerabilities.
+EOF
+
 echo "commitlint fixture passed"
