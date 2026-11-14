@@ -42,8 +42,13 @@ resource "google_cloud_run_v2_service" "relay" {
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
 
+  scaling {
+    min_instance_count = 0
+  }
+
   template {
     scaling {
+      min_instance_count = 0
       max_instance_count = 1
     }
     service_account = var.runtime_service_account
