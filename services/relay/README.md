@@ -21,6 +21,7 @@ SQLITE_PATH=/tmp/relay.sqlite SNAPSHOT_PATH=/tmp/relay.snapshot cargo run -p our
 docker build -f services/relay/Dockerfile -t ouroboros-relay .
 ```
 
-The image is distroless and runs as `nonroot`. If Docker is unavailable, record that here and do not treat the image as published.
-
-Docker build status: `docker build -f services/relay/Dockerfile -t ouroboros-relay .` exited 0 on 14 November 2026. The image is local only. It has not been pushed.
+The image is distroless and runs as `nonroot`. On `main`, `build-relay.yml` pushes
+`europe-west1-docker.pkg.dev/ouroboros-devops/ouroboros/relay:<commit sha>`.
+`promote-relay.yml` on `dev` or `prod` retags that digest as `:dev` / `:prod` and,
+when semantic-release tags the commit, as `:<version>`.
