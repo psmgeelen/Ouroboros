@@ -19,3 +19,13 @@ A stolen locked phone is protected by the platform keystore and the biometric lo
 ## Revoke
 
 Revoke deletes the sealed key and the blob from the relay and deletes the partner cache. Revoke stops future reads. Revoke does not erase a screenshot or a copied plaintext.
+
+## Acceptance
+
+- [x] Tracker can log a period
+- [x] Ranged prediction from the on-device model
+- [x] Pair with a short code, partner sees only the current view
+- [x] Revoke leaves the partner store empty
+- [x] Tracker export contains the log and account code
+- [x] Partner mode cannot export
+- [ ] Dev relay health check, recorded only after bootstrap apply

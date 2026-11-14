@@ -1,0 +1,11 @@
+version: "3"
+
+tasks:
+  apk:
+    desc: Build the Android release APK
+    cmds:
+      - flutter build apk --release
+  ipa:
+    desc: Build the iOS release IPA
+    cmds:
+      - flutter build ipa --release
