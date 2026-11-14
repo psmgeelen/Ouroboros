@@ -60,9 +60,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - run: bash scripts/install-task.sh
       - run: pip install pre-commit
       - run: task ci:hooks
 
@@ -74,9 +72,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - run: bash scripts/install-task.sh
       - run: npm ci
       - run: task ci:commitlint
 
@@ -90,9 +86,7 @@ jobs:
         with:
           toolchain: 1.100.0
           components: rustfmt, clippy
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - run: bash scripts/install-task.sh
       - run: task ci:core
 
   relay:
@@ -105,9 +99,7 @@ jobs:
         with:
           toolchain: 1.100.0
           components: rustfmt, clippy
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - run: bash scripts/install-task.sh
       - run: task ci:relay
 
   mobile:
@@ -119,9 +111,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - run: bash scripts/install-task.sh
       - run: task ci:mobile
 
   bootstrap:
@@ -131,9 +121,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - run: bash scripts/install-task.sh
       - run: task ci:bootstrap
 
   relay-stack:
@@ -143,9 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - run: bash scripts/install-task.sh
       - run: task ci:relay-stack
 
   workflows:
@@ -157,7 +143,5 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23"
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - run: bash scripts/install-task.sh
       - run: task ci:workflows

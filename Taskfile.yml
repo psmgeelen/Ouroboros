@@ -107,7 +107,7 @@ tasks:
   ci:mobile:
     desc: Format, analyze, and test apps/mobile
     cmds:
-      - bash -c 'cd apps/mobile && dart format --set-exit-if-changed lib test && flutter analyze && flutter test'
+      - bash -c 'cd apps/mobile && flutter pub get && dart format --set-exit-if-changed lib test && flutter analyze && flutter test'
       - bash scripts/check-partner-export.sh
 
   ci:bootstrap:
