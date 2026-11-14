@@ -88,7 +88,7 @@ tasks:
   ci:hooks:
     desc: Run the existing pre-commit hooks that do not need a language toolchain
     cmds:
-      - pre-commit run --all-files trailing-whitespace end-of-file-fixer check-yaml check-merge-conflict check-added-large-files
+      - SKIP=commitlint,rustfmt,terraform-fmt,flutter-format pre-commit run --all-files
 
   ci:core:
     desc: Format, lint, and test crates/core
