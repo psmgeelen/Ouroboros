@@ -12,28 +12,39 @@ on:
       - Cargo.lock
       - rust-toolchain.toml
       - infra/app/stacks/relay/**
+  workflow_dispatch:
+    inputs:
+      force_source:
+        description: Retag the main SHA image and run semantic-release
+        type: boolean
+        default: true
 
 permissions:
   contents: write
   id-token: write
 
 concurrency:
-  group: promote-${{ github.ref_name }}
+  group: promote-relay-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      source: ${{ steps.filter.outputs.source }}
-      infra: ${{ steps.filter.outputs.infra }}
+      source: ${{ steps.out.outputs.source }}
+      infra: ${{ steps.out.outputs.infra }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Compare against the previous tip of this branch. Default dorny behavior
+      # compares main...branch, which is empty after promoting the same SHA.
       - uses: dorny/paths-filter@v3
         id: filter
+        if: github.event_name == 'push'
         with:
+          base: ${{ github.event.before }}
+          ref: ${{ github.sha }}
           filters: |
             source:
               - 'services/relay/**'
@@ -43,6 +54,26 @@ jobs:
               - 'rust-toolchain.toml'
             infra:
               - 'infra/app/stacks/relay/**'
+      - id: out
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_SOURCE: ${{ github.event.inputs.force_source }}
+          FILTER_SOURCE: ${{ steps.filter.outputs.source }}
+          FILTER_INFRA: ${{ steps.filter.outputs.infra }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$FORCE_SOURCE" = "true" ]; then
+              echo "source=true" >> "$GITHUB_OUTPUT"
+              echo "infra=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "source=false" >> "$GITHUB_OUTPUT"
+              echo "infra=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "source=${FILTER_SOURCE:-false}" >> "$GITHUB_OUTPUT"
+            echo "infra=${FILTER_INFRA:-false}" >> "$GITHUB_OUTPUT"
+          fi
 
   promote:
     needs: changes
